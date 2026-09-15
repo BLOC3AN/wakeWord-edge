@@ -56,7 +56,7 @@ def train(config):
         raise SystemExit("every class needs at least one training mmap")
 
     flags = make_flags(config)
-    model = mixednet.model(flags, (feature_length, 40), batch_size=None)
+    model = mixednet.model(flags, (feature_length, 40), batch_size=batch_size)
     model.compile(
         optimizer=tf.keras.optimizers.Adam(config.get("learning_rate", 1e-3)),
         loss=tf.keras.losses.SparseCategoricalCrossentropy(),

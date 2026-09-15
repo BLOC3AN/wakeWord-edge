@@ -56,7 +56,7 @@ def make_mmap(input_dir, output_dir, step):
         slide_frames=10 if step == "training" else 1,
         step_ms=10,
     )
-    out = output_dir / f"{step}_mmap"
+    out = output_dir / step / f"{step}_mmap"
     if out.exists():
         return
     out.parent.mkdir(parents=True, exist_ok=True)
