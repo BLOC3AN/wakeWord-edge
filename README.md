@@ -44,7 +44,8 @@ Tải riêng model Piper theo hướng dẫn trong `docs/DATASET.md`; không đ�
 4. Chuyển WAV sang RaggedMmap bằng script chuẩn bị dữ liệu.
 5. Sửa `configs/mixednet.example.yaml`, chạy `scripts/train_mixednet.sh`.
 6. Chạy `scripts/export_tflite.sh`.
-7. Đo lại trên ESP32-S3: latency, RAM, false accepts/hour và false rejects.
+7. Kiểm tra ROC bằng `python scripts/check_metrics.py ...`.
+8. Đo lại trên ESP32-S3: latency, RAM, false accepts/hour và false rejects.
 
 ```bash
 cp configs/mixednet.example.yaml configs/mixednet.yaml
