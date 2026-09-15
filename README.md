@@ -17,6 +17,7 @@ data/raw/                WAV gốc (không commit)
 data/generated/          WAV tổng hợp/augment (không commit)
 data/mmap/               RaggedMmap cho trainer (không commit)
 data/external/           ambient và speech negatives (không commit)
+data/external/base/      dataset pretraining (không commit)
 models/micro-wake-word/  framework MixedNet
 models/piper-sample-generator/  công cụ tạo mẫu, không kèm model weights
 pipeline/                code tạo dữ liệu và chuẩn bị mmap
@@ -60,6 +61,7 @@ Không trộn nhiều câu khác nhau vào positive nếu sản phẩm chỉ có
 - `docs/DATASET.md`: chuẩn dữ liệu và split chống leakage.
 - `docs/TRAINING.md`: MixedNet, hyperparameter và metric.
 - `docs/DEPLOYMENT.md`: TFLite Micro/ESP32-S3.
+- `docs/BASE_PRETRAIN.md`: base embedding và user personalization.
 
 ## License
 

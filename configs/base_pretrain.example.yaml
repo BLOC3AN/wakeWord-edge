@@ -1,0 +1,18 @@
+# Dataset contract for the shared embedding backbone.
+# Keep all audio outside Git; only this config and manifests are versioned.
+sample_rate: 16000
+clip_duration_ms: 1000
+embedding_dim: 32
+train_dir: "./outputs/base_embedding"
+
+datasets:
+  speech_commands: "./data/external/base/speech_commands"
+  common_voice_vi: "./data/external/base/common_voice_vi"
+  ambient: "./data/external/base/ambient"
+
+training:
+  batch_size: 64
+  steps: 30000
+  learning_rate: 0.001
+  classes_per_batch: 32
+  samples_per_class: 2
