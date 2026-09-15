@@ -50,6 +50,7 @@ def make_mmap(input_dir, output_dir, step):
     out = output_dir / f"{step}_mmap"
     if out.exists():
         return
+    out.parent.mkdir(parents=True, exist_ok=True)
     RaggedMmap.from_generator(
         out_dir=str(out),
         sample_generator=spectrograms.spectrogram_generator(repeat=1),
