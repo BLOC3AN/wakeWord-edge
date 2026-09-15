@@ -1,0 +1,35 @@
+# Copy thành configs/mixednet.yaml rồi sửa tên wake word/đường dẫn.
+window_step_ms: 10
+train_dir: "./outputs/trained_models/custom_mixednet"
+features:
+  - features_dir: "./data/mmap/positive"
+    sampling_weight: 1.0
+    penalty_weight: 1.0
+    truth: true
+    truncation_strategy: "truncate_start"
+    type: "mmap"
+  - features_dir: "./data/mmap/negative_hard"
+    sampling_weight: 2.0
+    penalty_weight: 5.0
+    truth: false
+    truncation_strategy: "random"
+    type: "mmap"
+  - features_dir: "./data/external/validation_ambient"
+    sampling_weight: 1.0
+    penalty_weight: 1.0
+    truth: false
+    truncation_strategy: "random"
+    type: "mmap"
+model_name: "mixednet"
+training_steps: [15000, 15000]
+learning_rates: [0.001, 0.0002]
+batch_size: 64
+eval_step_interval: 500
+full_eval_interval: 2500
+ambient_eval_batch_size: 512
+clip_duration_ms: 50
+positive_class_weight: [1.0, 1.0]
+negative_class_weight: [2.0, 15.0]
+minimization_metric: "recall_at_no_faph"
+maximization_metric: "accuracy"
+target_minimization: 0.1
