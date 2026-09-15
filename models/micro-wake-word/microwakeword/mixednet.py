@@ -103,6 +103,18 @@ def model_parameters(parser_nn):
         default=1,
         help="Striding in the time dimension of the initial convolution layer",
     )
+    parser_nn.add_argument(
+        "--embedding_dim",
+        type=int,
+        default=0,
+        help="Optional L2-normalized embedding size; 0 keeps the binary wakeword head.",
+    )
+    parser_nn.add_argument(
+        "--num_classes",
+        type=int,
+        default=0,
+        help="Optional softmax class count after the embedding head.",
+    )
 
 
 def spectrogram_slices_dropped(flags):
@@ -381,6 +393,17 @@ def model(flags, shape, batch_size):
                 net = tf.keras.layers.AveragePooling2D(pool_size=(net.shape[1], 1))(net)
 
     net = tf.keras.layers.Flatten()(net)
-    net = tf.keras.layers.Dense(1, activation="sigmoid")(net)
+
+    if flags.embedding_dim:
+        net = tf.keras.layers.Dense(flags.embedding_dim, name="embedding")(net)
+        net = tf.keras.layers.Lambda(
+            lambda x: tf.math.l2_normalize(x, axis=-1), name="embedding_norm"
+        )(net)
+        if flags.num_classes:
+            net = tf.keras.layers.Dense(
+                flags.num_classes, activation="softmax", name="classifier"
+            )(net)
+    else:
+        net = tf.keras.layers.Dense(1, activation="sigmoid", name="wakeword")(net)
 
     return tf.keras.Model(input_audio, net)
