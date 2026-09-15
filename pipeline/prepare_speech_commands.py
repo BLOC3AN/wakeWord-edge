@@ -58,7 +58,9 @@ def make_mmap(input_dir, output_dir, step):
     )
     out = output_dir / step / f"{step}_mmap"
     if out.exists():
-        return
+        if any(out.iterdir()):
+            return
+        out.rmdir()
     out.parent.mkdir(parents=True, exist_ok=True)
     RaggedMmap.from_generator(
         out_dir=str(out),
