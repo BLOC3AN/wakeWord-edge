@@ -33,6 +33,14 @@ python pipeline/pretrain_embedding.py configs/base_pretrain.yaml
 
 The script writes only checkpoints and `classes.txt` under the ignored `outputs/` directory.
 
+For Speech Commands v0.02:
+
+```bash
+python pipeline/prepare_speech_commands.py \
+  data/external/base/downloads/speech_commands_v0.02 \
+  data/external/base
+```
+
 User enrollment then uses 10–20 positive recordings and 30–100 negative speech recordings to train a tiny head or compute a prototype.
 
 ## Split rules
