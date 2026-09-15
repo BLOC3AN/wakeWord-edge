@@ -86,7 +86,7 @@ def train(config):
     val_ds = tf.data.Dataset.from_generator(
         validation_gen,
         output_signature=(tf.TensorSpec((feature_length, 40), tf.float32), tf.TensorSpec((), tf.int32)),
-    ).batch(batch_size).prefetch(tf.data.AUTOTUNE)
+    ).batch(batch_size).repeat().prefetch(tf.data.AUTOTUNE)
 
     model.fit(
         train_ds,
@@ -97,7 +97,6 @@ def train(config):
         callbacks=[tf.keras.callbacks.ModelCheckpoint(output / "best.weights.h5", save_best_only=True, save_weights_only=True)],
     )
     model.save_weights(output / "last.weights.h5")
-    model.get_layer("embedding").output
     (output / "classes.txt").write_text("\n".join(config["classes"]) + "\n", encoding="utf-8")
 
 
@@ -109,5 +108,4 @@ def main():
 
 
 if __name__ == "__main__":
-    train_config = None
     main()
