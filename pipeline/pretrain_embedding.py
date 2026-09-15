@@ -83,11 +83,11 @@ def train(config):
     train_ds = tf.data.Dataset.from_generator(
         train_gen,
         output_signature=(tf.TensorSpec((feature_length, 40), tf.float32), tf.TensorSpec((), tf.int32)),
-    ).batch(batch_size).prefetch(tf.data.AUTOTUNE)
+    ).batch(batch_size, drop_remainder=True).prefetch(tf.data.AUTOTUNE)
     val_ds = tf.data.Dataset.from_generator(
         validation_gen,
         output_signature=(tf.TensorSpec((feature_length, 40), tf.float32), tf.TensorSpec((), tf.int32)),
-    ).batch(batch_size).repeat().prefetch(tf.data.AUTOTUNE)
+    ).batch(batch_size, drop_remainder=True).repeat().prefetch(tf.data.AUTOTUNE)
 
     model.fit(
         train_ds,
