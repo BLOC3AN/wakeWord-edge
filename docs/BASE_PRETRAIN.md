@@ -25,6 +25,14 @@ Use MixedNet as the streaming encoder, expose a 32–64 dimensional embedding be
 
 The model builder now supports `embedding_dim` and `num_classes` options. The default remains the original one-output binary wakeword head, so existing wakeword training is unchanged. The multiclass pretraining loop will consume this embedding head once the base dataset manifests are prepared.
 
+After each class has been converted to the same RaggedMmap layout under `data/external/base/features/<class>/`, run:
+
+```bash
+python pipeline/pretrain_embedding.py configs/base_pretrain.yaml
+```
+
+The script writes only checkpoints and `classes.txt` under the ignored `outputs/` directory.
+
 User enrollment then uses 10–20 positive recordings and 30–100 negative speech recordings to train a tiny head or compute a prototype.
 
 ## Split rules

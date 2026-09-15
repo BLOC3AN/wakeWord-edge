@@ -4,15 +4,19 @@ sample_rate: 16000
 clip_duration_ms: 1000
 embedding_dim: 32
 train_dir: "./outputs/base_embedding"
+feature_root: "./data/external/base/features"
+feature_length: 49
+batch_size: 64
+epochs: 20
+steps_per_epoch: 500
+validation_steps: 100
+learning_rate: 0.001
+window_step_s: 0.01
+stride: 1
+
+classes: [yes, no, up, down, left, right, stop, go, speech]
 
 datasets:
   speech_commands: "./data/external/base/speech_commands"
   common_voice_vi: "./data/external/base/common_voice_vi"
   ambient: "./data/external/base/ambient"
-
-training:
-  batch_size: 64
-  steps: 30000
-  learning_rate: 0.001
-  classes_per_batch: 32
-  samples_per_class: 2
