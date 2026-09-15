@@ -72,7 +72,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("source", type=Path, help="extracted speech_commands directory")
     parser.add_argument("output", type=Path)
-    parser.add_argument("--classes", default="yes,no,up,down,left,right,stop,go")
+    parser.add_argument("--classes", default="yes,no,up,down,left,right,stop,go,speech")
     args = parser.parse_args()
     classes = [x.strip() for x in args.classes.split(",") if x.strip()]
     validation = read_list(args.source / "validation_list.txt")

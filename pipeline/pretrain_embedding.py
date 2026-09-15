@@ -52,8 +52,9 @@ def train(config):
     batch_size = config.get("batch_size", 64)
     feature_length = config.get("feature_length", 49)
     providers_by_class = providers(config)
-    if any(p.get_mode_size("training") == 0 for p in providers_by_class):
-        raise SystemExit("every class needs at least one training mmap")
+    empty = [name for name, provider in zip(config["classes"], providers_by_class) if provider.get_mode_size("training") == 0]
+    if empty:
+        raise SystemExit(f"classes without training mmap: {', '.join(empty)}")
 
     flags = make_flags(config)
     model = mixednet.model(flags, (feature_length, 40), batch_size=batch_size)
