@@ -22,11 +22,12 @@ def link_split(source, target, classes, validation, testing):
 
     for wav in source.glob("*/*.wav"):
         cls = wav.parent.name
-        if cls not in classes:
+        target_cls = cls if cls in classes else "speech" if "speech" in classes else None
+        if target_cls is None:
             continue
         rel = str(wav.relative_to(source))
         split = "testing" if rel in testing else "validation" if rel in validation else "training"
-        dst = target / cls / split / wav.name
+        dst = target / target_cls / split / f"{cls}_{wav.name}"
         if not dst.exists():
             dst.symlink_to(wav.resolve())
 
