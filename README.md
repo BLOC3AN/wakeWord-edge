@@ -19,7 +19,8 @@ data/mmap/               RaggedMmap cho trainer (không commit)
 data/external/           ambient và speech negatives (không commit)
 models/micro-wake-word/  framework MixedNet
 models/piper-sample-generator/  công cụ tạo mẫu, không kèm model weights
-scripts/                 các bước tạo dữ liệu, train và export
+pipeline/                code tạo dữ liệu và chuẩn bị mmap
+scripts/                 command train, export và metric check
 docs/                    quy trình dữ liệu, đánh giá và triển khai
 outputs/                 checkpoint/TFLite (không commit)
 ```
@@ -41,7 +42,7 @@ Tải riêng model Piper theo hướng dẫn trong `docs/DATASET.md`; không đ�
 1. Chọn đúng một wake phrase và ghi âm mẫu thật.
 2. Tạo thêm mẫu Piper cho nhiều speaker/tốc độ.
 3. Tạo hard negatives tiếng Việt và ambient validation.
-4. Chuyển WAV sang RaggedMmap bằng script chuẩn bị dữ liệu.
+4. Chạy `pipeline/generate_samples.py`, `pipeline/build_dataset.py` và `pipeline/prepare_mmap.py`.
 5. Sửa `configs/mixednet.example.yaml`, chạy `scripts/train_mixednet.sh`.
 6. Chạy `scripts/export_tflite.sh`.
 7. Kiểm tra ROC bằng `python scripts/check_metrics.py ...`.
