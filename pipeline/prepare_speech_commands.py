@@ -4,10 +4,24 @@ import argparse
 import os
 from pathlib import Path
 
+import soundfile as sf
 from mmap_ninja.ragged import RaggedMmap
 from microwakeword.audio.augmentation import Augmentation
-from microwakeword.audio.clips import Clips
 from microwakeword.audio.spectrograms import SpectrogramGeneration
+
+
+class LocalClips:
+    """Read local WAVs without the optional Hugging Face audio decoder."""
+
+    def __init__(self, paths):
+        self.paths = sorted(paths)
+
+    def audio_generator(self, **_):
+        for path in self.paths:
+            audio, sample_rate = sf.read(path, dtype="float32", always_2d=False)
+            if sample_rate != 16000:
+                raise ValueError(f"expected 16 kHz WAV: {path}")
+            yield audio
 
 
 def read_list(path):
@@ -35,12 +49,7 @@ def link_split(source, target, classes, validation, testing):
 def make_mmap(input_dir, output_dir, step):
     if not any(input_dir.glob("*.wav")):
         return
-    clips = Clips(
-        input_directory=str(input_dir),
-        file_pattern="*.wav",
-        max_clip_duration_s=None,
-        remove_silence=False,
-    )
+    clips = LocalClips(input_dir.glob("*.wav"))
     spectrograms = SpectrogramGeneration(
         clips=clips,
         augmenter=Augmentation(augmentation_duration_s=1.0, augmentation_probabilities={}),
