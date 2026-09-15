@@ -28,11 +28,8 @@ outputs/                 checkpoint/TFLite (không commit)
 ## Cài đặt
 
 ```bash
-python3 -m venv .venv
+./scripts/setup_env.sh
 source .venv/bin/activate
-pip install "tensorflow[and-cuda]==2.21.0"
-pip install -e models/micro-wake-word
-pip install -e models/piper-sample-generator
 ```
 
 Tải riêng model Piper theo hướng dẫn trong `docs/DATASET.md`; không đưa file `.pt`/`.onnx` vào Git.
