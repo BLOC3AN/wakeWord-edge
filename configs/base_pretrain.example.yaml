@@ -14,7 +14,7 @@ learning_rate: 0.001
 window_step_s: 0.01
 stride: 1
 
-classes: [yes, no, up, down, left, right, stop, go, speech]
+classes: ["yes", "no", "up", "down", "left", "right", "stop", "go", "speech"]
 
 datasets:
   speech_commands: "./data/external/base/speech_commands"
