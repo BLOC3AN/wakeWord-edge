@@ -23,6 +23,8 @@ Do not commit these folders. Keep dataset URLs, licenses, versions and checksums
 
 Use MixedNet as the streaming encoder, expose a 32–64 dimensional embedding before the final classifier, and pretrain on many keyword classes plus speech/no-speech negatives. The final classifier is discarded before personalization.
 
+The model builder now supports `embedding_dim` and `num_classes` options. The default remains the original one-output binary wakeword head, so existing wakeword training is unchanged. The multiclass pretraining loop will consume this embedding head once the base dataset manifests are prepared.
+
 User enrollment then uses 10–20 positive recordings and 30–100 negative speech recordings to train a tiny head or compute a prototype.
 
 ## Split rules
