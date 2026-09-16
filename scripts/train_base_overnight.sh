@@ -6,7 +6,9 @@ cd "$project_dir"
 mkdir -p outputs
 exec >>outputs/overnight.log 2>&1
 
-.venv/bin/python -u pipeline/prepare_speech_commands.py \
-  data/external/base/downloads/speech_commands_v0.02 \
-  data/external/base
+if [[ "${1:-}" != "--train-only" ]]; then
+  .venv/bin/python -u pipeline/prepare_speech_commands.py \
+    data/external/base/downloads/speech_commands_v0.02 \
+    data/external/base
+fi
 .venv/bin/python -u pipeline/pretrain_embedding.py configs/base_pretrain.yaml
