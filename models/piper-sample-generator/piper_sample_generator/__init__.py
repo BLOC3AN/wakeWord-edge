@@ -1,1 +1,0 @@
-"""Piper sample generator."""

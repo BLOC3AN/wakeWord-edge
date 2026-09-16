@@ -80,8 +80,16 @@ def main():
     parser.add_argument("--classes", default="yes,no,up,down,left,right,stop,go,speech")
     parser.add_argument("--repeat", type=int, default=1)
     parser.add_argument("--augment-train", action="store_true")
+    parser.add_argument("--background-only", action="store_true")
+    parser.add_argument("--background-probability", type=float, default=0.75)
+    parser.add_argument("--background-min-snr-db", type=float, default=-5)
+    parser.add_argument("--background-max-snr-db", type=float, default=15)
     parser.add_argument("--background-dir", type=Path)
     args = parser.parse_args()
+    if not 0 <= args.background_probability <= 1:
+        parser.error("--background-probability must be between 0 and 1")
+    if args.background_min_snr_db > args.background_max_snr_db:
+        parser.error("--background-min-snr-db must not exceed --background-max-snr-db")
     classes = [x.strip() for x in args.classes.split(",") if x.strip()]
     validation = read_list(args.source / "validation_list.txt")
     testing = read_list(args.source / "testing_list.txt")
@@ -90,7 +98,7 @@ def main():
     probabilities = (
         {
             "AddColorNoise": 0.25,
-            "AddBackgroundNoise": 0.75,
+            "AddBackgroundNoise": args.background_probability,
             "Gain": 1.0,
             "GainTransition": 0.25,
             "PitchShift": 0.25,
@@ -99,14 +107,26 @@ def main():
         if args.augment_train
         else {}
     )
+    if args.background_only:
+        probabilities = (
+            {"AddBackgroundNoise": args.background_probability}
+            if args.augment_train
+            else {}
+        )
     background_paths = [str(args.background_dir)] if args.background_dir else []
     augmenter = Augmentation(
         augmentation_duration_s=1.0,
         augmentation_probabilities=probabilities,
         background_paths=background_paths,
-        background_min_snr_db=-5,
-        background_max_snr_db=15,
+        background_min_snr_db=args.background_min_snr_db,
+        background_max_snr_db=args.background_max_snr_db,
     )
+    if args.augment_train:
+        print(f"training augmentation probabilities: {probabilities}")
+        print(
+            "background SNR range: "
+            f"{args.background_min_snr_db}..{args.background_max_snr_db} dB"
+        )
     for cls in classes:
         for split in ("training", "validation", "testing"):
             make_mmap(

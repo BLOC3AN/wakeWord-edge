@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Pretrain a multiclass MixedNet embedding from per-class RaggedMmap data."""
 import argparse
+import random
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -13,11 +14,12 @@ from microwakeword import mixednet
 
 
 class ValidationMetrics(tf.keras.callbacks.Callback):
-    def __init__(self, dataset, steps, num_classes):
+    def __init__(self, dataset, steps, num_classes, trial=None):
         super().__init__()
         self.dataset = dataset
         self.steps = steps
         self.num_classes = num_classes
+        self.trial = trial
 
     def on_epoch_end(self, epoch, logs=None):
         logs = logs or {}
@@ -37,6 +39,10 @@ class ValidationMetrics(tf.keras.callbacks.Callback):
             f" - val_macro_recall: {logs['val_macro_recall']:.4f}"
             f" - val_macro_f1: {logs['val_macro_f1']:.4f}"
         )
+        if self.trial is not None:
+            self.trial.report(logs["val_macro_f1"], step=epoch)
+            if self.trial.should_prune():
+                raise RuntimeError("optuna_pruned")
 
 
 def make_flags(config):
@@ -77,7 +83,13 @@ def providers(config):
     ]
 
 
-def train(config):
+def train(config, trial=None):
+    seed = config.get("seed")
+    if seed is not None:
+        random.seed(seed)
+        np.random.seed(seed)
+        tf.random.set_seed(seed)
+
     batch_size = config.get("batch_size", 64)
     feature_length = config.get("feature_length", 49)
     providers_by_class = providers(config)
@@ -155,7 +167,7 @@ def train(config):
     )
     validation_steps = config.get("validation_steps") or (validation_size + batch_size - 1) // batch_size
     callbacks = [
-        ValidationMetrics(val_ds, validation_steps, len(config["classes"])),
+        ValidationMetrics(val_ds, validation_steps, len(config["classes"]), trial),
         tf.keras.callbacks.ModelCheckpoint(
             output / "best.weights.h5", save_best_only=True, save_weights_only=True
         ),
@@ -166,7 +178,7 @@ def train(config):
             monitor="val_loss", patience=8, restore_best_weights=True, verbose=1
         ),
     ]
-    model.fit(
+    fit_result = model.fit(
         train_ds,
         validation_data=val_ds,
         steps_per_epoch=config.get("steps_per_epoch", 500),
@@ -176,6 +188,13 @@ def train(config):
     )
     model.save_weights(output / "last.weights.h5")
     (output / "classes.txt").write_text("\n".join(config["classes"]) + "\n", encoding="utf-8")
+    values = fit_result.history
+    best_epoch = int(np.argmin(values.get("val_loss", [0])))
+    return {
+        "val_loss": float(values["val_loss"][best_epoch]),
+        "val_macro_f1": float(values["val_macro_f1"][best_epoch]),
+        "val_accuracy": float(values["val_accuracy"][best_epoch]),
+    }
 
 
 def main():

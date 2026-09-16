@@ -1,68 +1,91 @@
-# Custom wake word với MixedNet
+# wakeWord-edge
 
-Pipeline tối giản để train wake word tùy ý bằng microWakeWord/MixedNet và xuất model int8 cho TFLite Micro trên ESP32-S3.
+MixedNet pipeline for a reusable audio embedding and custom 2–3 syllable wake words on ESP32-S3. Large audio, feature maps, checkpoints and TFLite files stay outside Git.
 
-## Mục tiêu
-
-- wake word tiếng Việt dài 2–3 âm tiết;
-- tự tạo dữ liệu bằng Piper và bổ sung giọng thu thật;
-- đánh giá theo recall, false-reject và false-accepts/hour;
-- giữ frontend và streaming runtime giống nhau giữa train và firmware.
-
-## Cấu trúc
+## Current flow
 
 ```text
-configs/                 cấu hình mẫu, không chứa đường dẫn máy cá nhân
-data/raw/                WAV gốc (không commit)
-data/generated/          WAV tổng hợp/augment (không commit)
-data/mmap/               RaggedMmap cho trainer (không commit)
-data/external/           ambient và speech negatives (không commit)
-data/external/base/      dataset pretraining (không commit)
-models/micro-wake-word/  framework MixedNet
-models/piper-sample-generator/  công cụ tạo mẫu, không kèm model weights
-pipeline/                code tạo dữ liệu và chuẩn bị mmap
-scripts/                 command train, export và metric check
-docs/                    quy trình dữ liệu, đánh giá và triển khai
-outputs/                 checkpoint/TFLite (không commit)
+Speech Commands / custom audio
+        ↓
+prepare_speech_commands.py
+        ↓
+RaggedMmap features
+        ↓
+MixedNet base pretraining (V2 baseline)
+        ↓
+fixed validation/test evaluation
+        ↓
+Optuna V2.1 sweep
+        ↓
+user wakeword head → TFLite Micro / ESP32-S3
 ```
 
-## Cài đặt
+## Repository
+
+```text
+configs/                 small YAML examples
+data/                    ignored audio/features
+docs/                    dataset, training and deployment notes
+models/micro-wake-word/  vendored MixedNet runtime/trainer
+pipeline/                preparation, training, evaluation and Optuna
+scripts/                 environment, custom training, export and metric checks
+outputs/                 ignored checkpoints/reports
+```
+
+Piper voices and other datasets are external dependencies; no voice model is bundled.
+
+## Setup
 
 ```bash
 ./scripts/setup_env.sh
 source .venv/bin/activate
 ```
 
-Tải riêng model Piper theo hướng dẫn trong `docs/DATASET.md`; không đưa file `.pt`/`.onnx` vào Git.
+## Base pretraining
 
-## Pipeline
+```bash
+cp configs/base_pretrain.example.yaml configs/base_pretrain.yaml
+python pipeline/prepare_speech_commands.py \
+  data/external/base/downloads/speech_commands_v0.02 \
+  data/external/base
+CUDA_VISIBLE_DEVICES=2,3 python pipeline/pretrain_embedding.py configs/base_pretrain.yaml
+```
 
-1. Chọn đúng một wake phrase và ghi âm mẫu thật.
-2. Tạo thêm mẫu Piper cho nhiều speaker/tốc độ.
-3. Tạo hard negatives tiếng Việt và ambient validation.
-4. Chạy `pipeline/generate_samples.py`, `pipeline/build_dataset.py` và `pipeline/prepare_mmap.py`.
-5. Sửa `configs/mixednet.example.yaml`, chạy `scripts/train_mixednet.sh`.
-6. Chạy `scripts/export_tflite.sh`.
-7. Kiểm tra ROC bằng `python scripts/check_metrics.py ...`.
-8. Đo lại trên ESP32-S3: latency, RAM, false accepts/hour và false rejects.
+The trainer saves `best.weights.h5`, `last.weights.h5` and `classes.txt` under `outputs/`.
+
+## Fixed evaluation
+
+Use the same clean feature tensor for every checkpoint; never select a winner from the test set during tuning.
+
+```bash
+python pipeline/evaluate_checkpoints.py \
+  --split validation --samples-per-class 350 \
+  --run v2 configs/base_pretrain.yaml outputs/base_embedding_v2/best.weights.h5
+```
+
+The report includes accuracy, top-3 accuracy, macro precision/recall/F1, loss and a confusion matrix. These are pretraining metrics, not wakeword FAR/FRR.
+
+## Optuna V2.1
+
+```bash
+python pipeline/optuna_sweep.py configs/base_pretrain.yaml \
+  --trials 12 --epochs 25 \
+  --storage sqlite:///outputs/optuna_v21.db
+```
+
+Trials optimize validation macro-F1. Median pruning stops weak trials after the warmup; the held-out test split is used only after the final candidates are retrained.
+
+## Custom wakeword
 
 ```bash
 cp configs/mixednet.example.yaml configs/mixednet.yaml
 ./scripts/train_mixednet.sh configs/mixednet.yaml
 ./scripts/export_tflite.sh configs/mixednet.yaml
+python scripts/check_metrics.py <streaming_roc.txt> --max-faph 1
 ```
 
-## Nguyên tắc dữ liệu
-
-Không trộn nhiều câu khác nhau vào positive nếu sản phẩm chỉ có một wake phrase. Với từ 2–3 âm tiết, cần nhiều người nói, tốc độ, khoảng cách mic và noise; negative phải có câu gần âm và hội thoại tiếng Việt. Không chấp nhận kết quả nếu `AUC` hoặc `false accepts/hour` là `nan`.
-
-## Tài liệu
-
-- `docs/DATASET.md`: chuẩn dữ liệu và split chống leakage.
-- `docs/TRAINING.md`: MixedNet, hyperparameter và metric.
-- `docs/DEPLOYMENT.md`: TFLite Micro/ESP32-S3.
-- `docs/BASE_PRETRAIN.md`: base embedding và user personalization.
+Keep positive recordings speaker-disjoint from validation/test, add hard negatives and measure false rejects, false accepts/hour, latency and arena RAM on the target board.
 
 ## License
 
-Kiểm tra license của microWakeWord, Piper và các bộ dữ liệu trước khi public repo.
+Project code is Apache-2.0. Third-party code and datasets retain their own licenses.
