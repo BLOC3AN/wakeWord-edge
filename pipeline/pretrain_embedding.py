@@ -8,7 +8,7 @@ import numpy as np
 import tensorflow as tf
 import yaml
 
-from microwakeword.data import MmapFeatureGenerator
+from microwakeword.data import MmapFeatureGenerator, spec_augment
 from microwakeword import mixednet
 
 
@@ -85,6 +85,12 @@ def train(config):
     if empty:
         raise SystemExit(f"classes without training mmap: {', '.join(empty)}")
 
+    spec_probability = config.get("spec_augment_prob", 0.0)
+    time_mask_max = config.get("time_mask_max_size", 0)
+    time_mask_count = config.get("time_mask_count", 0)
+    freq_mask_max = config.get("freq_mask_max_size", 0)
+    freq_mask_count = config.get("freq_mask_count", 0)
+
     flags = make_flags(config)
     strategy = tf.distribute.MirroredStrategy()
     with strategy.scope():
@@ -103,9 +109,18 @@ def train(config):
         while True:
             for _ in range(batch_size):
                 index = int(np.random.randint(len(providers_by_class)))
-                yield providers_by_class[index].get_random_spectrogram(
+                feature = providers_by_class[index].get_random_spectrogram(
                     "training", feature_length, "random"
-                ), index
+                )
+                if np.random.random() < spec_probability:
+                    feature = spec_augment(
+                        feature,
+                        time_mask_max,
+                        time_mask_count,
+                        freq_mask_max,
+                        freq_mask_count,
+                    )
+                yield feature, index
 
     def validation_gen():
         for index, provider in enumerate(providers_by_class):
@@ -121,9 +136,10 @@ def train(config):
     val_ds = tf.data.Dataset.from_generator(
         validation_gen,
         output_signature=(tf.TensorSpec((feature_length, 40), tf.float32), tf.TensorSpec((), tf.int32)),
-    ).batch(batch_size, drop_remainder=True).repeat().prefetch(tf.data.AUTOTUNE)
+    ).batch(batch_size, drop_remainder=False).repeat().prefetch(tf.data.AUTOTUNE)
 
-    validation_steps = config.get("validation_steps", 100)
+    validation_size = sum(provider.get_mode_size("validation") for provider in providers_by_class)
+    validation_steps = config.get("validation_steps") or (validation_size + batch_size - 1) // batch_size
     callbacks = [
         ValidationMetrics(val_ds, validation_steps, len(config["classes"])),
         tf.keras.callbacks.ModelCheckpoint(
