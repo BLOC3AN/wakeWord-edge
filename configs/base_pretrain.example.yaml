@@ -3,16 +3,17 @@
 sample_rate: 16000
 clip_duration_ms: 1000
 embedding_dim: 32
-train_dir: "./outputs/base_embedding"
+train_dir: "./outputs/base_embedding_v2"
 feature_root: "./data/external/base/features"
 feature_length: 49
-batch_size: 16
-epochs: 20
+batch_size: 32
+epochs: 60
 steps_per_epoch: 500
 validation_steps: 100
 learning_rate: 0.001
 window_step_s: 0.01
 stride: 1
+dropout_rate: 0.1
 
 classes: ["yes", "no", "up", "down", "left", "right", "stop", "go", "speech"]
 

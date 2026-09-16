@@ -4,11 +4,39 @@ import argparse
 from pathlib import Path
 from types import SimpleNamespace
 
+import numpy as np
 import tensorflow as tf
 import yaml
 
 from microwakeword.data import MmapFeatureGenerator
 from microwakeword import mixednet
+
+
+class ValidationMetrics(tf.keras.callbacks.Callback):
+    def __init__(self, dataset, steps, num_classes):
+        super().__init__()
+        self.dataset = dataset
+        self.steps = steps
+        self.num_classes = num_classes
+
+    def on_epoch_end(self, epoch, logs=None):
+        logs = logs or {}
+        confusion = np.zeros((self.num_classes, self.num_classes), dtype=np.int64)
+        for features, labels in self.dataset.take(self.steps):
+            predictions = np.argmax(self.model(features, training=False).numpy(), axis=-1)
+            np.add.at(confusion, (labels.numpy().astype(np.int64), predictions), 1)
+        true_positive = np.diag(confusion).astype(np.float64)
+        precision = true_positive / np.maximum(confusion.sum(axis=0), 1)
+        recall = true_positive / np.maximum(confusion.sum(axis=1), 1)
+        f1 = 2 * precision * recall / np.maximum(precision + recall, 1e-12)
+        logs["val_macro_precision"] = float(precision.mean())
+        logs["val_macro_recall"] = float(recall.mean())
+        logs["val_macro_f1"] = float(f1.mean())
+        print(
+            f" - val_macro_precision: {logs['val_macro_precision']:.4f}"
+            f" - val_macro_recall: {logs['val_macro_recall']:.4f}"
+            f" - val_macro_f1: {logs['val_macro_f1']:.4f}"
+        )
 
 
 def make_flags(config):
@@ -26,6 +54,7 @@ def make_flags(config):
         stride=model.get("stride", 1),
         embedding_dim=config.get("embedding_dim", 32),
         num_classes=len(config["classes"]),
+        dropout_rate=config.get("dropout_rate", 0.1),
     )
 
 
@@ -57,13 +86,18 @@ def train(config):
         raise SystemExit(f"classes without training mmap: {', '.join(empty)}")
 
     flags = make_flags(config)
-    model = mixednet.model(flags, (feature_length, 40), batch_size=batch_size)
-    model.compile(
-        optimizer=tf.keras.optimizers.Adam(config.get("learning_rate", 1e-3)),
-        loss=tf.keras.losses.SparseCategoricalCrossentropy(),
-        metrics=["accuracy"],
-        jit_compile=False,
-    )
+    strategy = tf.distribute.MirroredStrategy()
+    with strategy.scope():
+        model = mixednet.model(flags, (feature_length, 40), batch_size=batch_size)
+        model.compile(
+            optimizer=tf.keras.optimizers.Adam(config.get("learning_rate", 1e-3)),
+            loss=tf.keras.losses.SparseCategoricalCrossentropy(),
+            metrics=[
+                tf.keras.metrics.SparseCategoricalAccuracy(name="accuracy"),
+                tf.keras.metrics.SparseTopKCategoricalAccuracy(k=3, name="top3_accuracy"),
+            ],
+            jit_compile=False,
+        )
 
     def train_gen():
         while True:
@@ -90,13 +124,26 @@ def train(config):
         output_signature=(tf.TensorSpec((feature_length, 40), tf.float32), tf.TensorSpec((), tf.int32)),
     ).batch(batch_size, drop_remainder=True).repeat().prefetch(tf.data.AUTOTUNE)
 
+    validation_steps = config.get("validation_steps", 100)
+    callbacks = [
+        ValidationMetrics(val_ds, validation_steps, len(config["classes"])),
+        tf.keras.callbacks.ModelCheckpoint(
+            output / "best.weights.h5", save_best_only=True, save_weights_only=True
+        ),
+        tf.keras.callbacks.ReduceLROnPlateau(
+            monitor="val_loss", factor=0.5, patience=3, min_lr=1e-5, verbose=1
+        ),
+        tf.keras.callbacks.EarlyStopping(
+            monitor="val_loss", patience=8, restore_best_weights=True, verbose=1
+        ),
+    ]
     model.fit(
         train_ds,
         validation_data=val_ds,
         steps_per_epoch=config.get("steps_per_epoch", 500),
-        validation_steps=config.get("validation_steps", 100),
-        epochs=config.get("epochs", 20),
-        callbacks=[tf.keras.callbacks.ModelCheckpoint(output / "best.weights.h5", save_best_only=True, save_weights_only=True)],
+        validation_steps=validation_steps,
+        epochs=config.get("epochs", 60),
+        callbacks=callbacks,
     )
     model.save_weights(output / "last.weights.h5")
     (output / "classes.txt").write_text("\n".join(config["classes"]) + "\n", encoding="utf-8")

@@ -115,6 +115,12 @@ def model_parameters(parser_nn):
         default=0,
         help="Optional softmax class count after the embedding head.",
     )
+    parser_nn.add_argument(
+        "--dropout_rate",
+        type=float,
+        default=0.0,
+        help="Dropout applied before the embedding head.",
+    )
 
 
 def spectrogram_slices_dropped(flags):
@@ -395,6 +401,9 @@ def model(flags, shape, batch_size):
     net = tf.keras.layers.Flatten()(net)
 
     if flags.embedding_dim:
+        dropout_rate = getattr(flags, "dropout_rate", 0.0)
+        if dropout_rate:
+            net = tf.keras.layers.Dropout(dropout_rate, name="embedding_dropout")(net)
         net = tf.keras.layers.Dense(flags.embedding_dim, name="embedding")(net)
         net = tf.keras.layers.Lambda(
             lambda x: tf.math.l2_normalize(x, axis=-1), name="embedding_norm"
