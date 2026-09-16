@@ -62,6 +62,7 @@ def train(config):
         optimizer=tf.keras.optimizers.Adam(config.get("learning_rate", 1e-3)),
         loss=tf.keras.losses.SparseCategoricalCrossentropy(),
         metrics=["accuracy"],
+        jit_compile=False,
     )
 
     def train_gen():
