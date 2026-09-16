@@ -10,6 +10,7 @@ batch_size: 32
 epochs: 60
 steps_per_epoch: 500
 validation_steps: null
+validation_samples_per_class: 350
 learning_rate: 0.001
 window_step_s: 0.01
 stride: 1

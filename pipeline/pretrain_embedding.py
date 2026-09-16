@@ -90,6 +90,12 @@ def train(config):
     time_mask_count = config.get("time_mask_count", 0)
     freq_mask_max = config.get("freq_mask_max_size", 0)
     freq_mask_count = config.get("freq_mask_count", 0)
+    validation_limit = config.get("validation_samples_per_class")
+    if validation_limit:
+        validation_limit = min(
+            int(validation_limit),
+            min(provider.get_mode_size("validation") for provider in providers_by_class),
+        )
 
     flags = make_flags(config)
     strategy = tf.distribute.MirroredStrategy()
@@ -124,7 +130,11 @@ def train(config):
 
     def validation_gen():
         for index, provider in enumerate(providers_by_class):
-            for feature in provider.get_feature_generator("validation", feature_length, "truncate_start"):
+            for feature_index, feature in enumerate(
+                provider.get_feature_generator("validation", feature_length, "truncate_start")
+            ):
+                if validation_limit is not None and feature_index >= validation_limit:
+                    break
                 yield feature, index
 
     output = Path(config.get("train_dir", "./outputs/base_embedding"))
@@ -138,7 +148,11 @@ def train(config):
         output_signature=(tf.TensorSpec((feature_length, 40), tf.float32), tf.TensorSpec((), tf.int32)),
     ).batch(batch_size, drop_remainder=False).repeat().prefetch(tf.data.AUTOTUNE)
 
-    validation_size = sum(provider.get_mode_size("validation") for provider in providers_by_class)
+    validation_size = (
+        validation_limit * len(providers_by_class)
+        if validation_limit is not None
+        else sum(provider.get_mode_size("validation") for provider in providers_by_class)
+    )
     validation_steps = config.get("validation_steps") or (validation_size + batch_size - 1) // batch_size
     callbacks = [
         ValidationMetrics(val_ds, validation_steps, len(config["classes"])),
