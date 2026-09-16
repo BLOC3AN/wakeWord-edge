@@ -6,7 +6,7 @@ embedding_dim: 32
 train_dir: "./outputs/base_embedding"
 feature_root: "./data/external/base/features"
 feature_length: 49
-batch_size: 64
+batch_size: 16
 epochs: 20
 steps_per_epoch: 500
 validation_steps: 100
