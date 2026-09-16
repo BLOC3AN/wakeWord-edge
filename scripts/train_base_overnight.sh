@@ -11,4 +11,4 @@ if [[ "${1:-}" != "--train-only" ]]; then
     data/external/base/downloads/speech_commands_v0.02 \
     data/external/base
 fi
-.venv/bin/python -u pipeline/pretrain_embedding.py configs/base_pretrain.yaml
+CUDA_VISIBLE_DEVICES=-1 .venv/bin/python -u pipeline/pretrain_embedding.py configs/base_pretrain.yaml
