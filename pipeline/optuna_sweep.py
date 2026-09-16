@@ -12,7 +12,7 @@ import yaml
 from pretrain_embedding import train
 
 
-def objective(trial, base_config, args):
+def objective(trial, base_config, args, strategy):
     config = dict(base_config)
     width = trial.suggest_categorical("pointwise_width", [48, 64])
     config["learning_rate"] = trial.suggest_float("learning_rate", 1e-4, 2e-3, log=True)
@@ -39,7 +39,7 @@ def objective(trial, base_config, args):
     trial_dir = args.output / f"trial-{trial.number:03d}"
     config["train_dir"] = str(trial_dir)
     try:
-        result = train(config, trial=trial)
+        result = train(config, trial=trial, strategy=strategy)
     except RuntimeError as error:
         if str(error) == "optuna_pruned":
             shutil.rmtree(trial_dir, ignore_errors=True)
@@ -66,6 +66,7 @@ def main():
     args = parser.parse_args()
     args.output.mkdir(parents=True, exist_ok=True)
     base_config = yaml.safe_load(args.config.read_text(encoding="utf-8"))
+    strategy = tf.distribute.MirroredStrategy()
     study = optuna.create_study(
         study_name="mixednet_v21",
         direction="maximize",
@@ -78,7 +79,7 @@ def main():
             interval_steps=1,
         ),
     )
-    study.optimize(lambda trial: objective(trial, base_config, args), n_trials=args.trials)
+    study.optimize(lambda trial: objective(trial, base_config, args, strategy), n_trials=args.trials)
     report = {
         "best_value": study.best_value,
         "best_params": study.best_params,

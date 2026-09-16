@@ -83,7 +83,7 @@ def providers(config):
     ]
 
 
-def train(config, trial=None):
+def train(config, trial=None, strategy=None):
     seed = config.get("seed")
     if seed is not None:
         random.seed(seed)
@@ -110,7 +110,7 @@ def train(config, trial=None):
         )
 
     flags = make_flags(config)
-    strategy = tf.distribute.MirroredStrategy()
+    strategy = strategy or tf.distribute.MirroredStrategy()
     with strategy.scope():
         model = mixednet.model(flags, (feature_length, 40), batch_size=batch_size)
         model.compile(
