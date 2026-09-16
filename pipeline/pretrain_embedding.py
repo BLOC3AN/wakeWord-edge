@@ -102,8 +102,7 @@ def train(config):
     def train_gen():
         while True:
             for _ in range(batch_size):
-                index = tf.random.uniform([], maxval=len(providers_by_class), dtype=tf.int32)
-                index = int(index.numpy())
+                index = int(np.random.randint(len(providers_by_class)))
                 yield providers_by_class[index].get_random_spectrogram(
                     "training", feature_length, "random"
                 ), index
