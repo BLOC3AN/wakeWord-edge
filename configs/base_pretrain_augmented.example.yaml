@@ -1,0 +1,24 @@
+# Base pretraining with real background/noise augmentation.
+sample_rate: 16000
+clip_duration_ms: 1000
+embedding_dim: 32
+train_dir: "./outputs/base_embedding_v4"
+feature_root: "./data/external/base_augmented/features"
+feature_length: 49
+batch_size: 32
+epochs: 60
+steps_per_epoch: 500
+validation_steps: null
+validation_samples_per_class: 350
+learning_rate: 0.001
+window_step_s: 0.01
+stride: 1
+dropout_rate: 0.1
+spec_augment_prob: 0.5
+time_mask_max_size: 5
+time_mask_count: 1
+freq_mask_max_size: 4
+freq_mask_count: 1
+
+classes: ["yes", "no", "up", "down", "left", "right", "stop", "go", "speech"]
+
