@@ -41,6 +41,21 @@ python pipeline/prepare_speech_commands.py \
   data/external/base
 ```
 
+For a robust training bank, keep validation/testing clean and augment only
+training clips with real background audio:
+
+```bash
+python pipeline/prepare_speech_commands.py \
+  data/external/base/downloads/speech_commands_v0.02 \
+  data/external/base_augmented \
+  --repeat 2 \
+  --augment-train \
+  --background-dir data/external/base/downloads/speech_commands_v0.02/_background_noise_
+```
+
+`--repeat 2` creates two independently augmented feature passes per training
+clip; keep the generated feature bank outside Git.
+
 User enrollment then uses 10–20 positive recordings and 30–100 negative speech recordings to train a tiny head or compute a prototype.
 
 ## Split rules

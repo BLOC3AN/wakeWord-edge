@@ -16,12 +16,13 @@ class LocalClips:
     def __init__(self, paths):
         self.paths = sorted(paths)
 
-    def audio_generator(self, **_):
-        for path in self.paths:
-            audio, sample_rate = sf.read(path, dtype="float32", always_2d=False)
-            if sample_rate != 16000:
-                raise ValueError(f"expected 16 kHz WAV: {path}")
-            yield audio
+    def audio_generator(self, repeat=1, **_):
+        for _ in range(max(1, repeat)):
+            for path in self.paths:
+                audio, sample_rate = sf.read(path, dtype="float32", always_2d=False)
+                if sample_rate != 16000:
+                    raise ValueError(f"expected 16 kHz WAV: {path}")
+                yield audio
 
 
 def read_list(path):
@@ -46,13 +47,13 @@ def link_split(source, target, classes, validation, testing):
             dst.symlink_to(wav.resolve())
 
 
-def make_mmap(input_dir, output_dir, step):
+def make_mmap(input_dir, output_dir, step, repeat, augmenter):
     if not any(input_dir.glob("*.wav")):
         return
     clips = LocalClips(input_dir.glob("*.wav"))
     spectrograms = SpectrogramGeneration(
         clips=clips,
-        augmenter=Augmentation(augmentation_duration_s=1.0, augmentation_probabilities={}),
+        augmenter=augmenter if step == "training" else None,
         slide_frames=10 if step == "training" else 1,
         step_ms=10,
     )
@@ -64,7 +65,9 @@ def make_mmap(input_dir, output_dir, step):
     out.parent.mkdir(parents=True, exist_ok=True)
     RaggedMmap.from_generator(
         out_dir=str(out),
-        sample_generator=spectrograms.spectrogram_generator(repeat=1),
+        sample_generator=spectrograms.spectrogram_generator(
+            repeat=repeat if step == "training" else 1
+        ),
         batch_size=100,
         verbose=True,
     )
@@ -75,15 +78,44 @@ def main():
     parser.add_argument("source", type=Path, help="extracted speech_commands directory")
     parser.add_argument("output", type=Path)
     parser.add_argument("--classes", default="yes,no,up,down,left,right,stop,go,speech")
+    parser.add_argument("--repeat", type=int, default=1)
+    parser.add_argument("--augment-train", action="store_true")
+    parser.add_argument("--background-dir", type=Path)
     args = parser.parse_args()
     classes = [x.strip() for x in args.classes.split(",") if x.strip()]
     validation = read_list(args.source / "validation_list.txt")
     testing = read_list(args.source / "testing_list.txt")
     split_root = args.output / "split"
     link_split(args.source, split_root, classes, validation, testing)
+    probabilities = (
+        {
+            "AddColorNoise": 0.25,
+            "AddBackgroundNoise": 0.75,
+            "Gain": 1.0,
+            "GainTransition": 0.25,
+            "PitchShift": 0.25,
+            "BandStopFilter": 0.10,
+        }
+        if args.augment_train
+        else {}
+    )
+    background_paths = [str(args.background_dir)] if args.background_dir else []
+    augmenter = Augmentation(
+        augmentation_duration_s=1.0,
+        augmentation_probabilities=probabilities,
+        background_paths=background_paths,
+        background_min_snr_db=-5,
+        background_max_snr_db=15,
+    )
     for cls in classes:
         for split in ("training", "validation", "testing"):
-            make_mmap(split_root / cls / split, args.output / "features" / cls, split)
+            make_mmap(
+                split_root / cls / split,
+                args.output / "features" / cls,
+                split,
+                args.repeat,
+                augmenter,
+            )
     print(f"prepared {len(classes)} classes under {args.output / 'features'}")
 
 
